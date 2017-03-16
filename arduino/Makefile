@@ -4,7 +4,7 @@ CLOCK = 16000000
 AVRDUDE = /usr/bin/avrdude
 PORT = /dev/ttyACM0 
 
-BIN = led
+BIN = tl
 
 OBJ = ${BIN}.o
 
