@@ -1,5 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/interrupt.h>
 
 #define DELAY_MS 100
 #define BLINK_TACTS 3	
@@ -25,8 +26,8 @@ typedef enum
 } State_t;
 
 
-State_t g_state;
-int g_time;
+volatile State_t g_state;
+volatile int g_time;
 
 int StateTime(State_t state)
 {
@@ -43,7 +44,7 @@ int StateTime(State_t state)
 	case stYellow:
 		return 30;
 	default:
-		return 10;
+		return 59;
 	}
 }
 void SwitchOnZeroTimeTo(State_t newState);
@@ -110,14 +111,32 @@ void BlinkOrSwitchTo(State_t newState)
 
 void OnTimer()
 {
+	cli();
 	g_time -= 1;
 	TrySwithState();
+	sei();
+}
+
+ISR(INT0_vect)
+{
+	if (g_state != stYellowBlinked)
+		 SwitchTo(stYellowBlinked);
+	else
+		SwitchTo(stRed);
+
+	_delay_ms(300);	
+	EIFR |= (1 << INTF0);	
 }
 
 int main ()
 {
 	DDRB |= SIGNAL_ALL;
-	SwitchTo(SIGNAL_RED);
+	SwitchTo(stRed);
+
+	sei(); // Enable global interrupts
+	EIMSK |= (1 << INT0); // Enable external interrupt INT0
+	EICRA |= (1 << ISC11);    // Trigger INT0 on rising edge
+
 	while (1)
 	{
 		_delay_ms(DELAY_MS);
