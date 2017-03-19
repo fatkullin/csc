@@ -3,6 +3,7 @@
 #include <avr/interrupt.h>
 
 #define DELAY_MS 100
+#define BUTTON_DELAY_MS 50 	 // for debouncing
 #define BLINK_TACTS 3	
 
 #define SIGNAL_RED 	(1 << 5) // arduino pin 13
@@ -26,8 +27,9 @@ typedef enum
 } State_t;
 
 
-volatile State_t g_state;
-volatile int g_time;
+volatile int g_buttonPressed;
+State_t g_state;
+int g_time;
 
 int StateTime(State_t state)
 {
@@ -111,36 +113,40 @@ void BlinkOrSwitchTo(State_t newState)
 
 void OnTimer()
 {
-	cli();
 	g_time -= 1;
 	TrySwithState();
-	sei();
 }
 
 ISR(INT0_vect)
 {
-	if (g_state != stYellowBlinked)
-		 SwitchTo(stYellowBlinked);
-	else
-		SwitchTo(stRed);
-
-	_delay_ms(300);	
-	EIFR |= (1 << INTF0);	
+	g_buttonPressed = 1;	
 }
 
 int main ()
 {
 	DDRB |= SIGNAL_ALL;
 	SwitchTo(stRed);
-
-	sei(); // Enable global interrupts
-	EIMSK |= (1 << INT0); // Enable external interrupt INT0
-	EICRA |= (1 << ISC11);    // Trigger INT0 on rising edge
+	g_buttonPressed = 0;
+	
+	sei(); 				// Enable global interrupts
+	EIMSK |= (1 << INT0); 		// Enable external interrupt INT0
+	EICRA |= (1 << ISC10);    	
 
 	while (1)
 	{
-		_delay_ms(DELAY_MS);
+		if (g_buttonPressed == 1)
+		{
+			if (g_state != stYellowBlinked)
+			 	SwitchTo(stYellowBlinked);
+			else
+				SwitchTo(stRed);
+	
+			_delay_ms(BUTTON_DELAY_MS);
+			g_buttonPressed = 0;
+			continue;
+		}
 		OnTimer();
+		_delay_ms(DELAY_MS);
 	}
 	return 0;
 }
